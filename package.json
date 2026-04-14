@@ -2,9 +2,9 @@
   "name": "kickoff-server",
   "version": "1.0.0",
   "description": "",
-  "main": "index.jsx",
+  "main": "index.js",
   "scripts": {
-    "start": "node index.jsx"
+    "start": "node index.js"
   },
   "keywords": [],
   "author": "",
