@@ -33,16 +33,18 @@ const upload  = multer({ storage });
 /* ════════════════════════════════════════════════════════════
    📧 NODEMAILER TRANSPORTER
    ════════════════════════════════════════════════════════════ */
-const transporter = nodemailer.createTransport({
-  service: "gmail",
-  port: 465,
-  secure: true,
-  auth: {
-    user: process.env.MAIL_USER,
-    pass: process.env.MAIL_PASS,
-  },
-  connectionTimeout: 5000,
-});
+const { Resend } = require("resend");
+
+const resend = new Resend(process.env.RESEND_API_KEY);
+
+async function sendOTPEmail(to, code, purpose = "login") {
+  await resend.emails.send({
+    from: "KICKOFF <onboarding@resend.dev>",
+    to: to,
+    subject: "Your OTP Code",
+    html: `<h2>Your OTP is: ${code}</h2>`
+  });
+}
 
 async function sendOTPEmail(to, code, purpose = "login") {
   const isSignup = purpose === "signup";
