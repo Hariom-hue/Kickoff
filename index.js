@@ -12,10 +12,7 @@ const nodemailer= require("nodemailer");
 
 const app = express();
 app.use(cors({
-  origin: [
-    "https://kickoff-client.vercel.app",
-    "http://localhost:5173"
-  ],
+  origin: true,  // Allow all origins — simplest fix for now
   credentials: true
 }));
 app.use(express.json());
@@ -37,11 +34,16 @@ const upload  = multer({ storage });
    📧 NODEMAILER TRANSPORTER
    ════════════════════════════════════════════════════════════ */
 const transporter = nodemailer.createTransport({
-  service: "gmail",
+  host: "smtp.gmail.com",
+  port: 587,
+  secure: false,
   auth: {
     user: process.env.MAIL_USER,
     pass: process.env.MAIL_PASS,
   },
+  tls: {
+    rejectUnauthorized: false
+  }
 });
 
 async function sendOTPEmail(to, code, purpose = "login") {
@@ -732,4 +734,6 @@ app.get("/delivery/:pincode", (req, res) => {
   res.json({ pincode, city: location.city, state: location.state, deliveryDate: formatted, cod: true, freeDelivery: true, seller: "NKRFASHIONS", sellerRating: "3.9" });
 });
 
-app.listen(5000, () => console.log("🚀 Server running on port 5000"));
+app.listen(process.env.PORT || 5000, () => 
+  console.log(`🚀 Server running on port ${process.env.PORT || 5000}`)
+);
