@@ -11,7 +11,13 @@ const crypto    = require("crypto");
 const nodemailer= require("nodemailer");
 
 const app = express();
-app.use(cors());
+app.use(cors({
+  origin: [
+    "https://kickoff-client.vercel.app",
+    "http://localhost:5173"
+  ],
+  credentials: true
+}));
 app.use(express.json());
 
   mongoose.connect(process.env.MONGODB_URI)
