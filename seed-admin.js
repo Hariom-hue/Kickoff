@@ -15,7 +15,8 @@ const Admin = mongoose.model("Admin", adminSchema);
 
 async function seed() {
   try {
-    await mongoose.connect("mongodb://127.0.0.1:27017/kickoffDB");
+    const uri = process.env.MONGODB_URI || "mongodb://127.0.0.1:27017/kickoffDB";
+    await mongoose.connect(uri);
     console.log("✅ MongoDB Connected");
 
     await Admin.deleteMany({});
@@ -42,7 +43,6 @@ async function seed() {
   } catch (err) {
     console.error("❌ Error:", err.message);
   }
-
   await mongoose.disconnect();
   process.exit(0);
 }
