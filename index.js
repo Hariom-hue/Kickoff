@@ -31,16 +31,24 @@ const upload  = multer({ storage });
   /* ════════════════════════════════════════════════
    📧  NODEMAILER — single transporter, two helpers
    ════════════════════════════════════════════════ */
+/* ════════════════════════════════════════════════
+   📧  NODEMAILER — Nuclear Fix
+   ════════════════════════════════════════════════ */
 const transporter = nodemailer.createTransport({
-  host: process.env.MAIL_HOST || "smtp.gmail.com",
-  port: 465,
-  secure: true,
-  family: 4,          // ✅ THIS IS THE MAGIC LINE: Forces IPv4 only
+  service: "gmail",   // ✅ This single line replaces host, port, secure, and family!
   auth: {
     user: process.env.MAIL_USER,
     pass: process.env.MAIL_PASS,
   }
 });            
+
+transporter.verify((error, success) => {
+  if (error) {
+    console.error("❌ EMAIL CONFIG ERROR:", error.message);
+  } else {
+    console.log("✅ Email transporter ready");
+  }
+});        
 
 transporter.verify((error, success) => {
   if (error) {
