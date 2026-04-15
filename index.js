@@ -32,16 +32,22 @@ const upload  = multer({ storage });
    ════════════════════════════════════════════════ */
   const transporter = nodemailer.createTransport({
   host: "smtp.gmail.com",
-  port: 465,
-  secure: true,
+  port: 587,
+  secure: false,
   auth: {
     user: process.env.MAIL_USER,
     pass: process.env.MAIL_PASS,
   },
   tls: {
     rejectUnauthorized: false
-  },
-  family: 4
+  }
+});            
+transporter.verify((error, success) => {
+  if (error) {
+    console.error("❌ EMAIL CONFIG ERROR:", error.message);
+  } else {
+    console.log("✅ Email transporter ready");
+  }
 });
 
 // User OTP email (signup / login)
