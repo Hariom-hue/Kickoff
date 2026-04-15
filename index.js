@@ -1,23 +1,20 @@
 require("dotenv").config();
 
-const express   = require("express");
-const cors      = require("cors");
-const mongoose  = require("mongoose");
-const multer    = require("multer");
-const cloudinary= require("cloudinary").v2;
-const bcrypt    = require("bcrypt");
-const jwt       = require("jsonwebtoken");
-const crypto    = require("crypto");
-const nodemailer= require("nodemailer");
+const express    = require("express");
+const cors       = require("cors");
+const mongoose   = require("mongoose");
+const multer     = require("multer");
+const cloudinary = require("cloudinary").v2;
+const bcrypt     = require("bcrypt");
+const jwt        = require("jsonwebtoken");
+const crypto     = require("crypto");
+const nodemailer = require("nodemailer");
 
 const app = express();
-app.use(cors({
-  origin: true,  // Allow all origins — simplest fix for now
-  credentials: true
-}));
+app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
 
-  mongoose.connect(process.env.MONGODB_URI)
+mongoose.connect(process.env.MONGODB_URI)
   .then(() => console.log("✅ MongoDB Connected"))
   .catch(err => console.log("❌ MongoDB Error:", err));
 
@@ -30,39 +27,37 @@ cloudinary.config({
 const storage = multer.memoryStorage();
 const upload  = multer({ storage });
 
-/* ════════════════════════════════════════════════════════════
-   📧 NODEMAILER TRANSPORTER
-   ════════════════════════════════════════════════════════════ */
-const { Resend } = require("resend");
+/* ════════════════════════════════════════════════
+   📧  NODEMAILER — single transporter, two helpers
+   ════════════════════════════════════════════════ */
+const transporter = nodemailer.createTransport({
+  host:   process.env.MAIL_HOST || "smtp.gmail.com",
+  port:   Number(process.env.MAIL_PORT) || 587,
+  secure: false,
+  auth: {
+    user: process.env.MAIL_USER,
+    pass: process.env.MAIL_PASS,   // ← Gmail App Password (16 chars)
+  },
+});
 
-const resend = new Resend(process.env.RESEND_API_KEY);
-
-async function sendOTPEmail(to, code, purpose = "login") {
-  await resend.emails.send({
-    from: "KICKOFF <onboarding@resend.dev>",
-    to: to,
-    subject: "Your OTP Code",
-    html: `<h2>Your OTP is: ${code}</h2>`
-  });
-}
-
+// User OTP email (signup / login)
 async function sendOTPEmail(to, code, purpose = "login") {
   const isSignup = purpose === "signup";
   await transporter.sendMail({
-    from:    process.env.MAIL_FROM || process.env.MAIL_USER,
+    from:    `"KICKOFF Store" <${process.env.MAIL_USER}>`,
     to,
     subject: `KICKOFF — Your ${isSignup ? "Signup" : "Login"} Code`,
     html: `
       <div style="background:#0a0a0a;padding:40px;font-family:sans-serif;max-width:480px;margin:0 auto;border-radius:16px;">
-        <h1 style="font-size:2rem;letter-spacing:0.1em;margin-bottom:6px;">
+        <h1 style="font-size:2rem;letter-spacing:0.1em;margin:0 0 6px;">
           <span style="color:#fff;">KICK</span><span style="color:#c8ff00;">OFF</span>
         </h1>
-        <p style="color:#555;font-size:11px;letter-spacing:0.15em;text-transform:uppercase;margin-bottom:32px;">
+        <p style="color:#555;font-size:11px;letter-spacing:0.15em;text-transform:uppercase;margin:0 0 32px;">
           ${isSignup ? "Account Verification" : "Secure Login"}
         </p>
-        <p style="color:#888;font-size:14px;margin-bottom:24px;">Your one-time verification code:</p>
+        <p style="color:#888;font-size:14px;margin-bottom:20px;">Your one-time verification code:</p>
         <div style="background:#111;border:1px solid #1e1e1e;border-radius:12px;padding:28px;text-align:center;margin-bottom:24px;">
-          <span style="font-size:2.8rem;font-weight:900;letter-spacing:0.25em;color:#c8ff00;">${code}</span>
+          <span style="font-size:2.8rem;font-weight:900;letter-spacing:0.3em;color:#c8ff00;">${code}</span>
         </div>
         <p style="color:#555;font-size:12px;line-height:1.6;">
           This code expires in <strong style="color:#888;">10 minutes</strong>.<br/>
@@ -76,20 +71,21 @@ async function sendOTPEmail(to, code, purpose = "login") {
   });
 }
 
+// Admin OTP email
 async function sendAdminOTPEmail(to, code) {
   await transporter.sendMail({
-    from:    process.env.MAIL_FROM || process.env.MAIL_USER,
+    from:    `"KICKOFF Admin" <${process.env.MAIL_USER}>`,
     to,
     subject: "KICKOFF Admin — Your Login Code",
     html: `
       <div style="background:#0a0a0a;padding:40px;font-family:sans-serif;max-width:480px;margin:0 auto;border-radius:16px;">
-        <h1 style="font-size:2rem;letter-spacing:0.1em;margin-bottom:6px;">
+        <h1 style="font-size:2rem;letter-spacing:0.1em;margin:0 0 6px;">
           <span style="color:#fff;">KICK</span><span style="color:#c8ff00;">OFF</span>
         </h1>
-        <p style="color:#555;font-size:11px;letter-spacing:0.15em;text-transform:uppercase;margin-bottom:32px;">Admin Portal</p>
-        <p style="color:#888;font-size:14px;margin-bottom:24px;">Your admin login code:</p>
+        <p style="color:#555;font-size:11px;letter-spacing:0.15em;text-transform:uppercase;margin:0 0 32px;">Admin Portal</p>
+        <p style="color:#888;font-size:14px;margin-bottom:20px;">Your admin login code:</p>
         <div style="background:#111;border:1px solid #1e1e1e;border-radius:12px;padding:28px;text-align:center;margin-bottom:24px;">
-          <span style="font-size:2.8rem;font-weight:900;letter-spacing:0.25em;color:#c8ff00;">${code}</span>
+          <span style="font-size:2.8rem;font-weight:900;letter-spacing:0.3em;color:#c8ff00;">${code}</span>
         </div>
         <p style="color:#555;font-size:12px;line-height:1.6;">
           Expires in <strong style="color:#888;">5 minutes</strong>.<br/>
@@ -103,17 +99,30 @@ async function sendAdminOTPEmail(to, code) {
   });
 }
 
-/* ════════════════════════════════════════════════════════════
+/* ═══════════════════════════════════
+   🔒 RATE LIMITER
+   ═══════════════════════════════════ */
+const rateLimits = new Map();
+function isRateLimited(key, max = 5, windowMs = 60_000) {
+  const now  = Date.now();
+  const data = rateLimits.get(key) || { count: 0, reset: now + windowMs };
+  if (now > data.reset) { data.count = 0; data.reset = now + windowMs; }
+  data.count++;
+  rateLimits.set(key, data);
+  return data.count > max;
+}
+
+/* ═══════════════════════════════════
    🔐 ADMIN MODEL
-   ════════════════════════════════════════════════════════════ */
+   ═══════════════════════════════════ */
 const adminSchema = new mongoose.Schema({
   username:  { type: String, required: true, unique: true },
   email:     { type: String, required: true, unique: true },
   password:  { type: String, required: true },
   role:      { type: String, enum: ["superadmin","admin","editor"], default: "admin" },
   active:    { type: Boolean, default: true },
-  lastLogin: { type: Date,    default: null },
-  createdAt: { type: Date,    default: Date.now },
+  lastLogin: { type: Date, default: null },
+  createdAt: { type: Date, default: Date.now },
 });
 const Admin = mongoose.model("Admin", adminSchema);
 
@@ -125,16 +134,14 @@ async function seedAdmin() {
     const email    = process.env.ADMIN_EMAIL    || "ombggaikwad@gmail.com";
     const hashed   = await bcrypt.hash(password, 12);
     await new Admin({ username, email, password: hashed, role: "superadmin" }).save();
-    console.log("✅ Default admin seeded");
-    console.log(`   Username : ${username}`);
-    console.log(`   Email    : ${email}`);
+    console.log(`✅ Admin seeded  user:${username}  email:${email}`);
   }
 }
 mongoose.connection.once("open", seedAdmin);
 
-/* ════════════════════════════════════════════════════════════
+/* ═══════════════════════════════════
    🛡️  JWT MIDDLEWARE
-   ════════════════════════════════════════════════════════════ */
+   ═══════════════════════════════════ */
 const ADMIN_JWT_SECRET = process.env.ADMIN_JWT_SECRET || "kickoff_admin_jwt_CHANGE_ME";
 
 function requireAdmin(req, res, next) {
@@ -146,9 +153,7 @@ function requireAdmin(req, res, next) {
     if (payload.role !== "admin") return res.status(403).json({ error: "Forbidden" });
     req.admin = payload;
     next();
-  } catch {
-    return res.status(401).json({ error: "Invalid or expired token" });
-  }
+  } catch { return res.status(401).json({ error: "Invalid or expired token" }); }
 }
 
 function requireRole(...roles) {
@@ -158,22 +163,9 @@ function requireRole(...roles) {
   };
 }
 
-/* ════════════════════════════════════════════════════════════
-   🔒 RATE LIMITER
-   ════════════════════════════════════════════════════════════ */
-const rateLimits = new Map();
-function isRateLimited(key, max = 5, windowMs = 60_000) {
-  const now  = Date.now();
-  const data = rateLimits.get(key) || { count: 0, reset: now + windowMs };
-  if (now > data.reset) { data.count = 0; data.reset = now + windowMs; }
-  data.count++;
-  rateLimits.set(key, data);
-  return data.count > max;
-}
-
-/* ════════════════════════════════════════════════════════════
-   🔐 ADMIN AUTH ROUTES
-   ════════════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════
+   🔐 ADMIN AUTH
+   ═══════════════════════════════════ */
 const pendingSessions = new Map();
 
 app.post("/admin-login", async (req, res) => {
@@ -188,12 +180,12 @@ app.post("/admin-login", async (req, res) => {
   try {
     const admin = await Admin.findOne({ username: username.trim().toLowerCase() });
     if (!admin || !admin.active) {
-      console.warn(`⚠️  Failed admin login — unknown user "${username}" from ${ip}`);
+      console.warn(`⚠️  Failed admin login — unknown user "${username}"`);
       return res.status(401).json({ success: false });
     }
     const match = await bcrypt.compare(password, admin.password);
     if (!match) {
-      console.warn(`⚠️  Failed admin login — wrong password for "${username}" from ${ip}`);
+      console.warn(`⚠️  Failed admin login — wrong password for "${username}"`);
       return res.status(401).json({ success: false });
     }
 
@@ -206,12 +198,10 @@ app.post("/admin-login", async (req, res) => {
       await sendAdminOTPEmail(admin.email, otp);
       console.log(`📧 Admin OTP sent to ${admin.email}`);
     } catch (mailErr) {
-      console.log(`\n🔐 ─────────────────────────────────────`);
-      console.log(`   [EMAIL FAILED — DEV FALLBACK]`);
+      console.log(`\n🔐 [EMAIL FAILED — DEV FALLBACK]`);
       console.log(`   Admin OTP  : ${otp}`);
       console.log(`   For user   : ${username}  (${admin.email})`);
-      console.log(`   Error      : ${mailErr.message}`);
-      console.log(`─────────────────────────────────────\n`);
+      console.log(`   Error      : ${mailErr.message}\n`);
     }
     res.json({ success: true, token: sessionToken });
   } catch (err) {
@@ -234,23 +224,18 @@ app.post("/admin-verify", async (req, res) => {
     pendingSessions.delete(token);
     return res.status(401).json({ success: false, error: "Code expired. Login again." });
   }
-  if (code !== session.otp) {
-    console.warn(`⚠️  Wrong OTP from ${ip}`);
-    return res.status(401).json({ success: false, error: "Invalid code" });
-  }
+  if (code !== session.otp) return res.status(401).json({ success: false, error: "Invalid code" });
   pendingSessions.delete(token);
 
   try {
     const admin = await Admin.findById(session.adminId);
-    if (!admin || !admin.active)
-      return res.status(401).json({ success: false, error: "Account deactivated" });
+    if (!admin || !admin.active) return res.status(401).json({ success: false, error: "Account deactivated" });
     await Admin.findByIdAndUpdate(admin._id, { lastLogin: new Date() });
     const adminToken = jwt.sign(
       { role: "admin", dbRole: admin.role, adminId: admin._id.toString(), username: admin.username, ip },
-      ADMIN_JWT_SECRET,
-      { expiresIn: "4h" }
+      ADMIN_JWT_SECRET, { expiresIn: "4h" }
     );
-    console.log(`✅ Admin login successful — "${admin.username}" (${admin.role}) from ${ip}`);
+    console.log(`✅ Admin login — "${admin.username}" (${admin.role})`);
     res.json({ success: true, adminToken });
   } catch (err) {
     console.error("admin-verify error:", err);
@@ -272,34 +257,9 @@ app.post("/admin-change-password", requireAdmin, async (req, res) => {
   } catch { res.status(500).json({ error: "Failed to update password" }); }
 });
 
-app.get("/admin-users", requireAdmin, requireRole("superadmin"), async (req, res) => {
-  try { res.json(await Admin.find({}, "-password").sort({ createdAt: -1 })); }
-  catch { res.status(500).json({ error: "Failed to fetch admins" }); }
-});
-
-app.post("/admin-users", requireAdmin, requireRole("superadmin"), async (req, res) => {
-  const { username, email, password, role } = req.body;
-  if (!username || !email || !password)
-    return res.status(400).json({ error: "username, email and password required" });
-  try {
-    const hashed = await bcrypt.hash(password, 12);
-    const admin  = new Admin({ username: username.trim().toLowerCase(), email, password: hashed, role: role || "admin" });
-    await admin.save();
-    res.status(201).json({ message: "Admin created ✅", admin: { ...admin.toObject(), password: undefined } });
-  } catch (err) {
-    if (err.code === 11000) return res.status(400).json({ error: "Username or email already exists" });
-    res.status(500).json({ error: "Failed to create admin" });
-  }
-});
-
-app.patch("/admin-users/:id/deactivate", requireAdmin, requireRole("superadmin"), async (req, res) => {
-  try { await Admin.findByIdAndUpdate(req.params.id, { active: false }); res.json({ message: "Admin deactivated ✅" }); }
-  catch { res.status(500).json({ error: "Failed to deactivate" }); }
-});
-
-/* ════════════════════════════════════════════════════════════
-   👤 USER MODEL + PROFILE MODEL
-   ════════════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════
+   👤 USER MODEL + PROFILE
+   ═══════════════════════════════════ */
 const userSchema = new mongoose.Schema({ email: String, password: String });
 const User = mongoose.model("User", userSchema);
 
@@ -313,22 +273,18 @@ const userProfileSchema = new mongoose.Schema({
 });
 const UserProfile = mongoose.model("UserProfile", userProfileSchema);
 
-/* ════════════════════════════════════════════════════════════
-   🔐 USER AUTH — OTP based (NEW — used by ProfilePanel.jsx)
-   in-memory OTP store: { email -> { otp, purpose, password?, expiresAt } }
-   ════════════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════
+   🔑 USER OTP AUTH
+   ═══════════════════════════════════ */
 const userOTPStore = new Map();
 
-// Send OTP — works for both signup and login
 app.post("/auth/send-otp", async (req, res) => {
   const { email, password, purpose } = req.body;
-  const ip = req.ip || "unknown";
-
   if (!email) return res.status(400).json({ error: "Email required" });
+
   if (isRateLimited(`userotp:${email}`, 5, 60_000))
     return res.status(429).json({ error: "Too many attempts. Wait 60s." });
 
-  // For signup: check email not already taken
   if (purpose === "signup") {
     if (!password || password.length < 6)
       return res.status(400).json({ error: "Password must be at least 6 characters" });
@@ -336,7 +292,6 @@ app.post("/auth/send-otp", async (req, res) => {
     if (existing) return res.status(400).json({ error: "Account already exists. Please sign in." });
   }
 
-  // For login: check user exists
   if (purpose === "login") {
     const existing = await User.findOne({ email: email.toLowerCase() });
     if (!existing) return res.status(404).json({ error: "No account found. Please create one." });
@@ -344,13 +299,10 @@ app.post("/auth/send-otp", async (req, res) => {
 
   const otp = Math.floor(100000 + Math.random() * 900000).toString();
   userOTPStore.set(email.toLowerCase(), {
-    otp,
-    purpose,
+    otp, purpose,
     password: password || null,
-    expiresAt: Date.now() + 10 * 60 * 1000, // 10 minutes
+    expiresAt: Date.now() + 10 * 60 * 1000,
   });
-
-  // Clean expired entries
   for (const [k, v] of userOTPStore) if (Date.now() > v.expiresAt) userOTPStore.delete(k);
 
   try {
@@ -358,19 +310,14 @@ app.post("/auth/send-otp", async (req, res) => {
     console.log(`📧 User OTP (${purpose}) sent to ${email}`);
     res.json({ success: true, message: "OTP sent to your email" });
   } catch (mailErr) {
-    // Dev fallback — print to terminal
-    console.log(`\n📧 ─────────────────────────────────────`);
-    console.log(`   [EMAIL FAILED — DEV FALLBACK]`);
+    console.log(`\n📧 [EMAIL FAILED — DEV FALLBACK]`);
     console.log(`   User OTP   : ${otp}`);
     console.log(`   For email  : ${email} (${purpose})`);
-    console.log(`   Error      : ${mailErr.message}`);
-    console.log(`─────────────────────────────────────\n`);
-    // Still return success so frontend works in dev
-    res.json({ success: true, message: "OTP sent (check terminal — email failed)" });
+    console.log(`   Error      : ${mailErr.message}\n`);
+    res.json({ success: true, message: "OTP sent (check Railway logs — email failed)" });
   }
 });
 
-// Verify signup OTP → create account
 app.post("/auth/verify-signup", async (req, res) => {
   const { email, otp } = req.body;
   if (!email || !otp) return res.status(400).json({ error: "Email and OTP required" });
@@ -387,21 +334,19 @@ app.post("/auth/verify-signup", async (req, res) => {
   userOTPStore.delete(email.toLowerCase());
 
   try {
-    // Double-check not already registered
     const existing = await User.findOne({ email: email.toLowerCase() });
     if (existing) return res.status(400).json({ error: "Account already exists. Please sign in." });
 
     const hashed = await bcrypt.hash(entry.password, 10);
     await new User({ email: email.toLowerCase(), password: hashed }).save();
 
-    // Create profile record
     await UserProfile.findOneAndUpdate(
       { email: email.toLowerCase() },
       { email: email.toLowerCase() },
       { upsert: true, new: true }
     );
 
-    const token = jwt.sign({ email: email.toLowerCase() }, "secret123", { expiresIn: "7d" });
+    const token = jwt.sign({ email: email.toLowerCase() }, process.env.JWT_SECRET || "secret123", { expiresIn: "7d" });
     console.log(`✅ New user signed up: ${email}`);
     res.json({ success: true, token, message: "Account created ✅" });
   } catch (err) {
@@ -410,7 +355,6 @@ app.post("/auth/verify-signup", async (req, res) => {
   }
 });
 
-// Verify login OTP → sign in
 app.post("/auth/verify-login", async (req, res) => {
   const { email, otp } = req.body;
   if (!email || !otp) return res.status(400).json({ error: "Email and OTP required" });
@@ -430,14 +374,13 @@ app.post("/auth/verify-login", async (req, res) => {
     const user = await User.findOne({ email: email.toLowerCase() });
     if (!user) return res.status(404).json({ error: "Account not found" });
 
-    // Ensure profile exists
     await UserProfile.findOneAndUpdate(
       { email: email.toLowerCase() },
       { email: email.toLowerCase() },
       { upsert: true, new: true }
     );
 
-    const token = jwt.sign({ email: email.toLowerCase() }, "secret123", { expiresIn: "7d" });
+    const token = jwt.sign({ email: email.toLowerCase() }, process.env.JWT_SECRET || "secret123", { expiresIn: "7d" });
     console.log(`✅ User logged in: ${email}`);
     res.json({ success: true, token, message: "Login successful ✅" });
   } catch (err) {
@@ -446,16 +389,15 @@ app.post("/auth/verify-login", async (req, res) => {
   }
 });
 
-/* ════════════════════════════════════════════════════════════
-   👤 USER PROFILE ROUTES (used by ProfilePanel tabs)
-   ════════════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════
+   👤 USER PROFILE ROUTES
+   ═══════════════════════════════════ */
 app.get("/user/profile", async (req, res) => {
   const { email } = req.query;
   if (!email) return res.status(400).json({ error: "Email required" });
   try {
     const profile = await UserProfile.findOne({ email: email.toLowerCase() });
     if (!profile) {
-      // Auto-create if missing
       const newProfile = await UserProfile.create({ email: email.toLowerCase() });
       return res.json(newProfile);
     }
@@ -476,9 +418,7 @@ app.patch("/user/profile", async (req, res) => {
   } catch { res.status(500).json({ error: "Failed to update profile" }); }
 });
 
-/* ════════════════════════════════════════════════════════════
-   🔐 LEGACY USER AUTH (kept for backward compat)
-   ════════════════════════════════════════════════════════════ */
+/* Legacy auth (backward compat) */
 app.post("/signup", async (req, res) => {
   const { email, password } = req.body;
   try {
@@ -497,21 +437,18 @@ app.post("/login", async (req, res) => {
     if (!user) return res.status(401).json({ error: "Invalid credentials" });
     const match = await bcrypt.compare(password, user.password);
     if (!match) return res.status(401).json({ error: "Invalid credentials" });
-    const token = jwt.sign({ email }, "secret123", { expiresIn: "1d" });
+    const token = jwt.sign({ email }, process.env.JWT_SECRET || "secret123", { expiresIn: "7d" });
     res.json({ message: "Login successful ✅", token });
   } catch { res.status(500).json({ error: "Login failed" }); }
 });
 
-/* ════════════════════════════════════════════════════════════
+/* ═══════════════════════════════════
    🏆 LEAGUES
-   ════════════════════════════════════════════════════════════ */
+   ═══════════════════════════════════ */
 const leagueSchema = new mongoose.Schema({
-  name:    { type: String, required: true },
-  sport:   { type: String, default: "Football" },
-  logo:    { type: String, default: "" },
-  country: { type: String, default: "" },
-  active:  { type: Boolean, default: true },
-  order:   { type: Number, default: 0 },
+  name: { type: String, required: true }, sport: { type: String, default: "Football" },
+  logo: { type: String, default: "" }, country: { type: String, default: "" },
+  active: { type: Boolean, default: true }, order: { type: Number, default: 0 },
 });
 const League = mongoose.model("League", leagueSchema);
 
@@ -519,12 +456,12 @@ async function seedLeagues() {
   const count = await League.countDocuments();
   if (count === 0) {
     await League.insertMany([
-      { name: "IPL",           sport: "Cricket",    country: "India",   order: 1 },
-      { name: "FIFA World Cup",sport: "Football",   country: "Global",  order: 2 },
-      { name: "La Liga",       sport: "Football",   country: "Spain",   order: 3 },
-      { name: "Premier League",sport: "Football",   country: "England", order: 4 },
-      { name: "NBA",           sport: "Basketball", country: "USA",     order: 5 },
-      { name: "Pro Kabaddi",   sport: "Kabaddi",    country: "India",   order: 6 },
+      { name: "IPL", sport: "Cricket", country: "India", order: 1 },
+      { name: "FIFA World Cup", sport: "Football", country: "Global", order: 2 },
+      { name: "La Liga", sport: "Football", country: "Spain", order: 3 },
+      { name: "Premier League", sport: "Football", country: "England", order: 4 },
+      { name: "NBA", sport: "Basketball", country: "USA", order: 5 },
+      { name: "Pro Kabaddi", sport: "Kabaddi", country: "India", order: 6 },
     ]);
     console.log("✅ Default leagues seeded");
   }
@@ -536,46 +473,31 @@ app.get("/leagues", async (req, res) => {
   catch { res.status(500).json({ error: "Failed to fetch leagues" }); }
 });
 app.post("/leagues", requireAdmin, async (req, res) => {
-  try { const l = new League(req.body); await l.save(); res.status(201).json(l); }
+  try { res.status(201).json(await new League(req.body).save()); }
   catch { res.status(500).json({ error: "Failed to create league" }); }
 });
 app.put("/leagues/:id", requireAdmin, async (req, res) => {
   try { res.json(await League.findByIdAndUpdate(req.params.id, req.body, { new: true })); }
   catch { res.status(500).json({ error: "Failed to update league" }); }
 });
-app.delete("/leagues/:id", requireAdmin, requireRole("superadmin","admin"), async (req, res) => {
+app.delete("/leagues/:id", requireAdmin, async (req, res) => {
   try { await League.findByIdAndDelete(req.params.id); res.json({ message: "Deleted ✅" }); }
   catch { res.status(500).json({ error: "Failed to delete league" }); }
 });
 
-/* ════════════════════════════════════════════════════════════
+/* ═══════════════════════════════════
    🔥 PRODUCTS
-   ════════════════════════════════════════════════════════════ */
+   ═══════════════════════════════════ */
 const productSchema = new mongoose.Schema({
-  name:      String,
-  category:  String,
-  league:    { type: String, default: "" },
-  price:     Number,
-  image:     String,
-  backImage: { type: String, default: "" },
+  name: String, category: String, league: { type: String, default: "" },
+  price: Number, image: String, backImage: { type: String, default: "" },
   highlights: {
-    color:    { type: String, default: "" },
-    pattern:  { type: String, default: "" },
-    fabric:   { type: String, default: "" },
-    fit:      { type: String, default: "" },
-    occasion: { type: String, default: "" },
-    material: { type: String, default: "" },
+    color: { type: String, default: "" }, pattern: { type: String, default: "" },
+    fabric: { type: String, default: "" }, fit: { type: String, default: "" },
+    occasion: { type: String, default: "" }, material: { type: String, default: "" },
   }
 });
 const Product = mongoose.model("Product", productSchema);
-
-const orderSchema = new mongoose.Schema({
-  items: Array, total: Number, user: String,
-  address: String, paymentId: String, paymentMethod: String,
-  appliedOffer: String,
-  date: { type: Date, default: Date.now }
-});
-const Order = mongoose.model("Order", orderSchema);
 
 app.get("/products", async (req, res) => {
   try {
@@ -593,7 +515,7 @@ app.put("/update-product/:id", requireAdmin, async (req, res) => {
   try { res.json({ message: "Updated ✅", product: await Product.findByIdAndUpdate(req.params.id, req.body, { new: true }) }); }
   catch { res.status(500).json({ error: "Failed to update product" }); }
 });
-app.delete("/delete-product/:id", requireAdmin, requireRole("superadmin","admin"), async (req, res) => {
+app.delete("/delete-product/:id", requireAdmin, async (req, res) => {
   try { await Product.findByIdAndDelete(req.params.id); res.json({ message: "Deleted ✅" }); }
   catch { res.status(500).json({ error: "Failed to delete" }); }
 });
@@ -607,36 +529,37 @@ app.post("/upload", requireAdmin, upload.single("image"), async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+/* ═══════════════════════════════════
+   📦 ORDERS
+   ═══════════════════════════════════ */
+const orderSchema = new mongoose.Schema({
+  items: Array, total: Number, user: String,
+  address: String, paymentId: String, paymentMethod: String,
+  appliedOffer: String, date: { type: Date, default: Date.now }
+});
+const Order = mongoose.model("Order", orderSchema);
+
 app.post("/order", async (req, res) => {
-  try { const order = new Order(req.body); await order.save(); res.json({ message: "Order placed ✅" }); }
+  try { const o = new Order(req.body); await o.save(); res.json({ message: "Order placed ✅", orderId: o._id }); }
   catch { res.status(500).json({ error: "Failed to place order" }); }
 });
-
 app.get("/orders", requireAdmin, async (req, res) => {
   try { res.json(await Order.find().sort({ date: -1 })); }
   catch { res.status(500).json({ error: "Failed to fetch orders" }); }
 });
-
-// User-specific orders (used by ProfilePanel orders tab)
 app.get("/orders/user/:email", async (req, res) => {
-  try {
-    const orders = await Order.find({ user: decodeURIComponent(req.params.email) }).sort({ date: -1 });
-    res.json(orders);
-  } catch { res.status(500).json({ error: "Failed to fetch user orders" }); }
+  try { res.json(await Order.find({ user: decodeURIComponent(req.params.email) }).sort({ date: -1 })); }
+  catch { res.status(500).json({ error: "Failed to fetch user orders" }); }
 });
 
-/* ════════════════════════════════════════════════════════════
+/* ═══════════════════════════════════
    ⭐ REVIEWS
-   ════════════════════════════════════════════════════════════ */
+   ═══════════════════════════════════ */
 const reviewSchema = new mongoose.Schema({
-  productId:  { type: String, required: true },
-  user:       { type: String, required: true },
-  rating:     { type: Number, required: true, min: 1, max: 5 },
-  title:      { type: String, default: "" },
-  comment:    { type: String, required: true },
-  helpful:    { type: Number, default: 0 },
-  notHelpful: { type: Number, default: 0 },
-  date:       { type: Date,   default: Date.now }
+  productId: { type: String, required: true }, user: { type: String, required: true },
+  rating: { type: Number, required: true, min: 1, max: 5 }, title: { type: String, default: "" },
+  comment: { type: String, required: true }, helpful: { type: Number, default: 0 },
+  notHelpful: { type: Number, default: 0 }, date: { type: Date, default: Date.now }
 });
 const Review = mongoose.model("Review", reviewSchema);
 
@@ -647,7 +570,7 @@ app.get("/reviews/:productId", async (req, res) => {
     const avg     = total ? parseFloat((reviews.reduce((s, r) => s + r.rating, 0) / total).toFixed(1)) : 0;
     const starCounts = [5,4,3,2,1].map(star => {
       const count = reviews.filter(r => r.rating === star).length;
-      return { star, count, pct: total ? Math.round((count/total)*100) : 0 };
+      return { star, count, pct: total ? Math.round((count / total) * 100) : 0 };
     });
     res.json({ reviews, avg, total, starCounts });
   } catch { res.status(500).json({ error: "Failed to fetch reviews" }); }
@@ -673,17 +596,14 @@ app.post("/reviews/:productId/:reviewId/vote", async (req, res) => {
   } catch { res.status(500).json({ error: "Vote failed" }); }
 });
 
-/* ════════════════════════════════════════════════════════════
+/* ═══════════════════════════════════
    🏦 OFFERS
-   ════════════════════════════════════════════════════════════ */
+   ═══════════════════════════════════ */
 const offerSchema = new mongoose.Schema({
-  tag:      { type: String, default: null },
-  icon:     { type: String, default: "🏦" },
-  label:    { type: String, required: true },
-  sub:      { type: String, required: true },
-  type:     { type: String, required: true },
-  discount: { type: Number, required: true },
-  active:   { type: Boolean, default: true }
+  tag: { type: String, default: null }, icon: { type: String, default: "🏦" },
+  label: { type: String, required: true }, sub: { type: String, required: true },
+  type: { type: String, required: true }, discount: { type: Number, required: true },
+  active: { type: Boolean, default: true }
 });
 const Offer = mongoose.model("Offer", offerSchema);
 
@@ -692,9 +612,9 @@ async function seedOffers() {
   if (count === 0) {
     await Offer.insertMany([
       { tag: "Best value for you", icon: "🏦", label: "₹50 off", sub: "BHIM",         type: "UPI • Cashback",         discount: 50 },
-      { tag: null,                 icon: "💳", label: "₹20 off", sub: "Flipkart Axis", type: "Credit Card • Cashback", discount: 20 },
-      { tag: null,                 icon: "📱", label: "₹50 off", sub: "Paytm",         type: "UPI • Cashback",         discount: 50 },
-      { tag: null,                 icon: "💳", label: "₹20 off", sub: "HDFC",          type: "Debit Card • Cashback",  discount: 20 },
+      { tag: null, icon: "💳", label: "₹20 off", sub: "Flipkart Axis",  type: "Credit Card • Cashback", discount: 20 },
+      { tag: null, icon: "📱", label: "₹50 off", sub: "Paytm",          type: "UPI • Cashback",         discount: 50 },
+      { tag: null, icon: "💳", label: "₹20 off", sub: "HDFC",           type: "Debit Card • Cashback",  discount: 20 },
     ]);
     console.log("✅ Default offers seeded");
   }
@@ -706,22 +626,16 @@ app.get("/offers", async (req, res) => {
   catch { res.status(500).json({ error: "Failed to fetch offers" }); }
 });
 
-/* ════════════════════════════════════════════════════════════
+/* ═══════════════════════════════════
    📍 DELIVERY / PIN
-   ════════════════════════════════════════════════════════════ */
+   ═══════════════════════════════════ */
 const pinData = {
-  "411001": { city: "Pune",      state: "Maharashtra"   },
-  "422001": { city: "Nashik",    state: "Maharashtra"   },
-  "400001": { city: "Mumbai",    state: "Maharashtra"   },
-  "110001": { city: "Delhi",     state: "Delhi"         },
-  "560001": { city: "Bengaluru", state: "Karnataka"     },
-  "600001": { city: "Chennai",   state: "Tamil Nadu"    },
-  "500001": { city: "Hyderabad", state: "Telangana"     },
-  "700001": { city: "Kolkata",   state: "West Bengal"   },
-  "380001": { city: "Ahmedabad", state: "Gujarat"       },
-  "302001": { city: "Jaipur",    state: "Rajasthan"     },
-  "226001": { city: "Lucknow",   state: "Uttar Pradesh" },
-  "800001": { city: "Patna",     state: "Bihar"         },
+  "411001": { city: "Pune", state: "Maharashtra" }, "422001": { city: "Nashik", state: "Maharashtra" },
+  "400001": { city: "Mumbai", state: "Maharashtra" }, "110001": { city: "Delhi", state: "Delhi" },
+  "560001": { city: "Bengaluru", state: "Karnataka" }, "600001": { city: "Chennai", state: "Tamil Nadu" },
+  "500001": { city: "Hyderabad", state: "Telangana" }, "700001": { city: "Kolkata", state: "West Bengal" },
+  "380001": { city: "Ahmedabad", state: "Gujarat" }, "302001": { city: "Jaipur", state: "Rajasthan" },
+  "226001": { city: "Lucknow", state: "Uttar Pradesh" }, "800001": { city: "Patna", state: "Bihar" },
 };
 
 app.get("/delivery/:pincode", (req, res) => {
@@ -734,6 +648,6 @@ app.get("/delivery/:pincode", (req, res) => {
   res.json({ pincode, city: location.city, state: location.state, deliveryDate: formatted, cod: true, freeDelivery: true, seller: "NKRFASHIONS", sellerRating: "3.9" });
 });
 
-app.listen(process.env.PORT || 5000, () => 
+app.listen(process.env.PORT || 5000, () =>
   console.log(`🚀 Server running on port ${process.env.PORT || 5000}`)
 );
