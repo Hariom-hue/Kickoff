@@ -30,18 +30,20 @@ const upload  = multer({ storage });
 /* ════════════════════════════════════════════════
    📧  NODEMAILER — single transporter, two helpers
    ════════════════════════════════════════════════ */
-  const transporter = nodemailer.createTransport({
-  host: "smtp.gmail.com",
-  port: 587,
-  secure: false,
+  /* ════════════════════════════════════════════════
+   📧  NODEMAILER — single transporter, two helpers
+   ════════════════════════════════════════════════ */
+const transporter = nodemailer.createTransport({
+  host: process.env.MAIL_HOST || "smtp.gmail.com",
+  port: 465,          // ✅ Changed from 587 to 465 for strict SSL
+  secure: true,       // ✅ Changed from false to true
   auth: {
     user: process.env.MAIL_USER,
     pass: process.env.MAIL_PASS,
-  },
-  tls: {
-    rejectUnauthorized: false
   }
+  // Note: 'tls' block removed as secure: true handles this automatically on port 465
 });            
+
 transporter.verify((error, success) => {
   if (error) {
     console.error("❌ EMAIL CONFIG ERROR:", error.message);
