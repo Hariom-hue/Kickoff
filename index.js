@@ -31,13 +31,14 @@ const upload  = multer({ storage });
    📧  NODEMAILER — single transporter, two helpers
    ════════════════════════════════════════════════ */
 const transporter = nodemailer.createTransport({
-  host:   process.env.MAIL_HOST || "smtp.gmail.com",
-  port:   Number(process.env.MAIL_PORT) || 587,
-  secure: false,
+  host: "smtp.gmail.com",
+  port: 465,
+  secure: true, // IMPORTANT (for 465)
   auth: {
     user: process.env.MAIL_USER,
-    pass: process.env.MAIL_PASS,   // ← Gmail App Password (16 chars)
+    pass: process.env.MAIL_PASS,
   },
+  family: 4 // 🔥 FORCE IPv4 (THIS FIXES YOUR ERROR)
 });
 
 // User OTP email (signup / login)
