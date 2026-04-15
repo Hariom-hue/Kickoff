@@ -28,27 +28,19 @@ cloudinary.config({
 const storage = multer.memoryStorage();
 const upload  = multer({ storage });
 
-  /* ════════════════════════════════════════════════
-   📧  NODEMAILER — single transporter, two helpers
-   ════════════════════════════════════════════════ */
 /* ════════════════════════════════════════════════
-   📧  NODEMAILER — Nuclear Fix
+   📧  NODEMAILER — Nuclear Fix with Timeout
    ════════════════════════════════════════════════ */
 const transporter = nodemailer.createTransport({
-  service: "gmail",   // ✅ This single line replaces host, port, secure, and family!
+  service: "gmail",
   auth: {
     user: process.env.MAIL_USER,
     pass: process.env.MAIL_PASS,
-  }
+  },
+  connectionTimeout: 5000, // ✅ Force it to fail after 5 seconds instead of hanging
+  greetingTimeout: 5000,
+  socketTimeout: 5000
 });            
-
-transporter.verify((error, success) => {
-  if (error) {
-    console.error("❌ EMAIL CONFIG ERROR:", error.message);
-  } else {
-    console.log("✅ Email transporter ready");
-  }
-});        
 
 transporter.verify((error, success) => {
   if (error) {
