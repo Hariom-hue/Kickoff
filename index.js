@@ -30,15 +30,18 @@ const upload  = multer({ storage });
 /* ════════════════════════════════════════════════
    📧  NODEMAILER — single transporter, two helpers
    ════════════════════════════════════════════════ */
-const transporter = nodemailer.createTransport({
+  const transporter = nodemailer.createTransport({
   host: "smtp.gmail.com",
   port: 465,
-  secure: true, // IMPORTANT (for 465)
+  secure: true,
   auth: {
     user: process.env.MAIL_USER,
     pass: process.env.MAIL_PASS,
   },
-  family: 4 // 🔥 FORCE IPv4 (THIS FIXES YOUR ERROR)
+  tls: {
+    rejectUnauthorized: false
+  },
+  family: 4
 });
 
 // User OTP email (signup / login)
