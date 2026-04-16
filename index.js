@@ -9,7 +9,7 @@ const cloudinary = require("cloudinary").v2;
 const bcrypt     = require("bcrypt");
 const jwt        = require("jsonwebtoken");
 const crypto     = require("crypto");
-const nodemailer = require("nodemailer");
+const { Resend } = require("resend");
 
 const app = express();
 app.use(cors({ origin: true, credentials: true }));
@@ -29,32 +29,15 @@ const storage = multer.memoryStorage();
 const upload  = multer({ storage });
 
 /* ════════════════════════════════════════════════
-   📧  NODEMAILER — Nuclear Fix with Timeout
+   📧  RESEND API — Reliable Email Delivery
    ════════════════════════════════════════════════ */
-const transporter = nodemailer.createTransport({
-  service: "gmail",
-  auth: {
-    user: process.env.MAIL_USER,
-    pass: process.env.MAIL_PASS,
-  },
-  connectionTimeout: 5000, // ✅ Force it to fail after 5 seconds instead of hanging
-  greetingTimeout: 5000,
-  socketTimeout: 5000
-});            
-
-transporter.verify((error, success) => {
-  if (error) {
-    console.error("❌ EMAIL CONFIG ERROR:", error.message);
-  } else {
-    console.log("✅ Email transporter ready");
-  }
-});
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 // User OTP email (signup / login)
 async function sendOTPEmail(to, code, purpose = "login") {
   const isSignup = purpose === "signup";
-  await transporter.sendMail({
-    from:    `"KICKOFF Store" <${process.env.MAIL_USER}>`,
+  await resend.emails.send({
+    from: "KICKOFF Store <onboarding@resend.dev>",
     to,
     subject: `KICKOFF — Your ${isSignup ? "Signup" : "Login"} Code`,
     html: `
@@ -74,7 +57,7 @@ async function sendOTPEmail(to, code, purpose = "login") {
           If you didn't request this, please ignore this email.
         </p>
         <div style="margin-top:28px;padding-top:20px;border-top:1px solid #1a1a1a;">
-          <p style="color:#2a2a2a;font-size:11px;">© 2025 KICKOFF Store</p>
+          <p style="color:#2a2a2a;font-size:11px;">© 2026 KICKOFF Store</p>
         </div>
       </div>
     `,
@@ -83,8 +66,8 @@ async function sendOTPEmail(to, code, purpose = "login") {
 
 // Admin OTP email
 async function sendAdminOTPEmail(to, code) {
-  await transporter.sendMail({
-    from:    `"KICKOFF Admin" <${process.env.MAIL_USER}>`,
+  await resend.emails.send({
+    from: "KICKOFF Admin <onboarding@resend.dev>",
     to,
     subject: "KICKOFF Admin — Your Login Code",
     html: `
@@ -102,7 +85,7 @@ async function sendAdminOTPEmail(to, code) {
           If you didn't request this, your admin panel may be under attack.
         </p>
         <div style="margin-top:28px;padding-top:20px;border-top:1px solid #1a1a1a;">
-          <p style="color:#2a2a2a;font-size:11px;">© 2025 KICKOFF Store — All attempts are logged.</p>
+          <p style="color:#2a2a2a;font-size:11px;">© 2026 KICKOFF Store — All attempts are logged.</p>
         </div>
       </div>
     `,
