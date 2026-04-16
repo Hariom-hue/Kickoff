@@ -12,7 +12,10 @@ const crypto     = require("crypto");
 const { Resend } = require("resend");
 
 const app = express();
-app.use(cors({ origin: true, credentials: true }));
+app.use(cors({ 
+  origin: "https://kickoff-client.vercel.app", // Put your actual Vercel link here!
+  credentials: true 
+}));
 app.use(express.json());
 
 mongoose.connect(process.env.MONGODB_URI)
