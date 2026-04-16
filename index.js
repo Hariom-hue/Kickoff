@@ -1,5 +1,5 @@
 require("dotenv").config();
-const dns = require("dns");                      // Add this
+const dns = require("dns");
 dns.setDefaultResultOrder("ipv4first");
 const express    = require("express");
 const cors       = require("cors");
@@ -106,6 +106,40 @@ function isRateLimited(key, max = 5, windowMs = 60_000) {
 }
 
 /* ═══════════════════════════════════
+   🛡️  IP WHITELIST FOR ADMIN ACCESS
+   ═══════════════════════════════════ */
+// IMPORTANT: Add your IP addresses to .env as ADMIN_ALLOWED_IPS="1.2.3.4,5.6.7.8"
+const ALLOWED_ADMIN_IPS = (process.env.ADMIN_ALLOWED_IPS || "").split(",").map(ip => ip.trim()).filter(Boolean);
+
+function requireAdminIP(req, res, next) {
+  // Skip IP check if no whitelist configured (for development)
+  if (ALLOWED_ADMIN_IPS.length === 0) {
+    console.warn("⚠️  ADMIN_ALLOWED_IPS not set — IP whitelist disabled (INSECURE)");
+    return next();
+  }
+
+  // Get real IP (handles proxies like Railway/Vercel)
+  const ip = req.headers["x-forwarded-for"]?.split(",")[0]?.trim() 
+          || req.headers["x-real-ip"]
+          || req.connection.remoteAddress 
+          || req.socket.remoteAddress
+          || req.ip;
+
+  console.log(`🔍 Admin access attempt from IP: ${ip}`);
+
+  if (!ALLOWED_ADMIN_IPS.includes(ip)) {
+    console.warn(`🚫 Blocked admin access from unauthorized IP: ${ip}`);
+    return res.status(403).json({ 
+      success: false, 
+      error: "Access denied. Admin panel is restricted to authorized IPs only." 
+    });
+  }
+
+  console.log(`✅ Authorized admin IP: ${ip}`);
+  next();
+}
+
+/* ═══════════════════════════════════
    🔐 ADMIN MODEL
    ═══════════════════════════════════ */
 const adminSchema = new mongoose.Schema({
@@ -157,11 +191,11 @@ function requireRole(...roles) {
 }
 
 /* ═══════════════════════════════════
-   🔐 ADMIN AUTH
+   🔐 ADMIN AUTH (IP-PROTECTED)
    ═══════════════════════════════════ */
 const pendingSessions = new Map();
 
-app.post("/admin-login", async (req, res) => {
+app.post("/admin-login", requireAdminIP, async (req, res) => {
   const ip = req.ip || "unknown";
   if (isRateLimited(`adminlogin:${ip}`, 5, 60_000))
     return res.status(429).json({ success: false, error: "Too many attempts. Wait 60s." });
@@ -203,7 +237,7 @@ app.post("/admin-login", async (req, res) => {
   }
 });
 
-app.post("/admin-verify", async (req, res) => {
+app.post("/admin-verify", requireAdminIP, async (req, res) => {
   const ip = req.ip || "unknown";
   if (isRateLimited(`adminverify:${ip}`, 5, 60_000))
     return res.status(429).json({ success: false, error: "Too many attempts." });
